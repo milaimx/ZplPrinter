@@ -1,208 +1,909 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZPL Studio — ZPL 代码转 PDF 打印工具</title>
-  <meta name="description" content="在线 ZPL (Zebra Programming Language) 代码预览、转换 PDF 并打印。支持货运标签、条形码、二维码。">
-  <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="src/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZPL Studio v2 — 解构·重组·PDF打印</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --sans:'DM Sans',-apple-system,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --bg:#ffffff;--bg2:#f6f5f2;--bg3:#eeedea;--bg4:#e3e2de;
+  --txt:#181816;--txt2:#636360;--txt3:#a0a09c;
+  --border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);
+  --blue:#185FA5;--blue2:#0C447C;--blue-bg:#E6F1FB;
+  --green:#0F6E56;--green-bg:#E1F5EE;
+  --amber:#854F0B;--amber-bg:#FAEEDA;
+  --red:#993C1D;--red-bg:#FAECE7;
+  --r:8px;--r2:12px;--r3:6px;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 14px rgba(0,0,0,0.05);
+  --hh:52px;--th:42px;--ah:52px;
+}
+html,body{height:100%;overflow:hidden;font-family:var(--sans);font-size:14px;color:var(--txt);background:var(--bg)}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-rows:var(--hh) var(--th) 1fr var(--ah);height:100vh}
+.workspace{display:grid;grid-template-columns:1fr 3px 1fr;overflow:hidden;min-height:0}
+
+/* ── HEADER ── */
+.hdr{display:flex;align-items:center;padding:0 1.25rem;border-bottom:.5px solid var(--border);gap:12px;background:var(--bg);z-index:10}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-box{width:30px;height:30px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.logo-box svg{width:16px;height:16px;fill:white}
+.logo-name{font-size:15px;font-weight:600;letter-spacing:-.3px}
+.logo-name em{font-style:normal;color:var(--blue)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.badge-v{background:var(--blue-bg);color:var(--blue);font-size:11px;font-weight:500;padding:2px 8px;border-radius:99px}
+
+/* ── TOOLBAR ── */
+.tbar{display:flex;align-items:center;padding:0 1rem;border-bottom:.5px solid var(--border);background:var(--bg2);gap:6px;overflow-x:auto}
+.tbar::-webkit-scrollbar{display:none}
+.tbar-l,.tbar-r{display:flex;align-items:center;gap:5px}
+.tbar-r{margin-left:auto;flex-shrink:0}
+.tlabel{font-size:11px;color:var(--txt3);white-space:nowrap;padding:0 3px}
+.sep{width:.5px;height:18px;background:var(--border2);margin:0 4px;flex-shrink:0}
+
+/* ── BUTTONS ── */
+.btn{font-family:var(--sans);font-size:12px;font-weight:500;padding:5px 11px;border-radius:var(--r3);border:.5px solid var(--border2);background:var(--bg);color:var(--txt);cursor:pointer;white-space:nowrap;transition:background .12s;display:inline-flex;align-items:center;gap:4px}
+.btn:hover{background:var(--bg3)}.btn:active{transform:scale(.97)}
+.btn-sm{padding:4px 9px;font-size:11.5px}.btn-xs{padding:3px 8px;font-size:11px}
+.btn-pri{background:var(--blue);color:#fff;border-color:var(--blue)}.btn-pri:hover{background:var(--blue2);border-color:var(--blue2)}
+.btn-green{background:var(--green);color:#fff;border-color:var(--green)}.btn-green:hover{filter:brightness(1.1)}
+.ctrl{font-family:var(--sans);font-size:11.5px;padding:4px 7px;border-radius:var(--r3);border:.5px solid var(--border2);background:var(--bg);color:var(--txt);outline:none;cursor:pointer}
+.ctrl-w{width:64px}
+.ctrl:focus{border-color:var(--blue)}
+
+/* ── PANE ── */
+.pane{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.ph{display:flex;align-items:center;padding:7px 12px;border-bottom:.5px solid var(--border);background:var(--bg2);flex-shrink:0;gap:6px}
+.pt{font-size:11px;font-weight:500;color:var(--txt2);text-transform:uppercase;letter-spacing:.7px}
+.pa{margin-left:auto;display:flex;align-items:center;gap:5px}
+
+/* ── EDITOR ── */
+.ed-body{flex:1;display:flex;overflow:hidden;min-height:0}
+.lnums{padding:13px 8px 13px 10px;font-family:var(--mono);font-size:12px;line-height:1.65;color:var(--txt3);text-align:right;background:var(--bg2);border-right:.5px solid var(--border);user-select:none;white-space:pre;overflow:hidden;min-width:40px;flex-shrink:0}
+.zpl-ta{flex:1;resize:none;outline:none;border:none;font-family:var(--mono);font-size:12.5px;line-height:1.65;padding:13px 14px;background:var(--bg);color:var(--txt);tab-size:2;overflow-y:auto}
+.zpl-ta::placeholder{color:var(--txt3)}
+.ed-ft{display:flex;align-items:center;padding:4px 12px;gap:10px;border-top:.5px solid var(--border);background:var(--bg2);flex-shrink:0;height:26px}
+.efi{font-size:11px;color:var(--txt3)}
+
+/* ── DIVIDER ── */
+.divider{background:var(--border);cursor:col-resize;transition:background .15s;flex-shrink:0}
+.divider:hover,.divider.drag{background:var(--blue)}
+
+/* ── PREVIEW PANE ── */
+.pv-pane{border-left:.5px solid var(--border)}
+.pv-scroll{flex:1;overflow:auto;background:var(--bg3)}
+.pv-area{min-height:100%;display:flex;flex-direction:column;align-items:center;padding:20px 16px;gap:16px}
+.pv-ft{display:flex;align-items:center;justify-content:space-between;padding:4px 12px;border-top:.5px solid var(--border);background:var(--bg2);flex-shrink:0;height:26px}
+
+/* label card */
+.lbl-wrap{position:relative}
+.lbl-tag{position:absolute;top:-20px;left:0;font-size:10px;color:var(--txt3);background:var(--bg3);padding:2px 7px;border-radius:var(--r3) var(--r3) 0 0;white-space:nowrap}
+.lbl-card{background:white;box-shadow:var(--shadow);border-radius:2px;overflow:hidden}
+.lbl-card canvas{display:block}
+
+/* empty */
+.empty{text-align:center;padding:60px 24px;color:var(--txt3)}
+.empty-ico{font-size:42px;margin-bottom:10px;opacity:.45}
+.empty-ttl{font-size:14px;font-weight:500;color:var(--txt2);margin-bottom:5px}
+.empty-sub{font-size:12.5px}
+
+/* ── ACTION BAR ── */
+.abar{display:flex;align-items:center;padding:0 1.25rem;border-top:.5px solid var(--border);background:var(--bg);gap:10px}
+.status-area{display:flex;align-items:center;gap:7px;flex:1;min-width:0;overflow:hidden}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--txt3);flex-shrink:0;transition:background .2s}
+.sdot.ok{background:var(--green)}.sdot.err{background:var(--red)}.sdot.busy{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#smsg{font-size:12.5px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.abtns{display:flex;gap:6px;flex-shrink:0}
+
+/* ── SPLIT PANEL (deconstruct results) ── */
+.split-info{background:var(--blue-bg);border-radius:var(--r);padding:10px 14px;font-size:12.5px;color:var(--blue);display:flex;align-items:center;gap:8px;width:100%;max-width:560px}
+.split-info svg{width:16px;height:16px;fill:var(--blue);flex-shrink:0}
+
+/* ── MODAL ── */
+.mover{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:200}
+.modal{background:var(--bg);border-radius:var(--r2);border:.5px solid var(--border2);width:min(680px,95vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.16)}
+.mhdr{display:flex;align-items:center;padding:13px 18px;border-bottom:.5px solid var(--border);flex-shrink:0}
+.mttl{font-size:15px;font-weight:600;flex:1}
+.mbody{padding:16px 18px;overflow-y:auto;flex:1}
+.mft{padding:12px 18px;border-top:.5px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+.btn-x{background:none;border:none;font-size:18px;cursor:pointer;color:var(--txt2);padding:2px 6px;line-height:1}.btn-x:hover{color:var(--txt)}
+.hidden{display:none!important}
+
+/* ── PROGRESS ── */
+.prog-wrap{width:100%;height:4px;background:var(--bg4);border-radius:99px;overflow:hidden;flex-shrink:0}
+.prog-bar{height:100%;background:var(--blue);border-radius:99px;transition:width .3s;width:0}
+
+/* ── PDF PREVIEW GRID ── */
+.pdf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;width:100%}
+.pdf-item{border:.5px solid var(--border2);border-radius:var(--r);overflow:hidden;background:white;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.pdf-item:hover{box-shadow:var(--shadow);border-color:var(--blue)}
+.pdf-item.selected{border:2px solid var(--blue)}
+.pdf-item canvas{display:block;width:100%;height:auto}
+.pdf-item-label{padding:6px 8px;font-size:11px;color:var(--txt2);background:var(--bg2);border-top:.5px solid var(--border)}
+
+/* ── SPINNER ── */
+.spin{width:14px;height:14px;border:1.5px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite;display:inline-block;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── BADGE ── */
+.badge{font-size:10px;font-weight:500;padding:2px 7px;border-radius:99px;white-space:nowrap}
+.badge-on{background:var(--green-bg);color:var(--green)}
+.badge-off{background:var(--amber-bg);color:var(--amber)}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:64px;left:50%;transform:translateX(-50%) translateY(6px);background:var(--txt);color:var(--bg);font-size:12.5px;padding:7px 18px;border-radius:99px;pointer-events:none;opacity:0;transition:opacity .18s,transform .18s;z-index:999;white-space:nowrap;box-shadow:var(--shadow)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:99px}
+
+/* ── DECONSTRUCT SUMMARY ── */
+.summ-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.summ-card{background:var(--bg2);border-radius:var(--r);padding:12px 14px;border:.5px solid var(--border)}
+.summ-num{font-size:24px;font-weight:600;color:var(--blue);line-height:1}
+.summ-lbl{font-size:11.5px;color:var(--txt2);margin-top:3px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  .workspace{grid-template-columns:1fr;grid-template-rows:45vh 3px 1fr}
+  .pv-pane{border-left:none;border-top:.5px solid var(--border)}
+  .divider{cursor:row-resize}
+  .tbar-r{display:none}
+}
+</style>
 </head>
 <body>
 <div class="app" id="app">
 
-  <!-- Header -->
-  <header class="header">
+  <!-- HEADER -->
+  <header class="hdr">
     <div class="logo">
-      <div class="logo-icon">
-        <svg viewBox="0 0 24 24" fill="white"><path d="M20 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8 9H4v-2h8v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zM4 11V9h16v2H4z"/></svg>
+      <div class="logo-box">
+        <svg viewBox="0 0 24 24"><path d="M20 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8 9H4v-2h8v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zM4 11V9h16v2H4z"/></svg>
       </div>
       <span class="logo-name">ZPL<em>Studio</em></span>
+      <span class="badge-v">v2</span>
     </div>
-    <nav class="header-nav">
-      <button class="nav-btn" onclick="UI.showDocs()">文档</button>
-      <button class="nav-btn" onclick="UI.showSettings()">设置</button>
-      <a class="nav-btn" href="https://github.com/yourusername/zpl-studio" target="_blank" rel="noopener">GitHub ↗</a>
-    </nav>
+    <div class="hdr-right">
+      <span id="badge-mode" class="badge hidden"></span>
+      <button class="btn btn-sm" onclick="showHelp()">使用说明</button>
+    </div>
   </header>
 
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <div class="toolbar-left">
-      <span class="toolbar-label">示例</span>
-      <button class="btn btn-sm" onclick="Editor.loadSample('shipping')">📦 货运标签</button>
-      <button class="btn btn-sm" onclick="Editor.loadSample('barcode')">▦ 条形码</button>
-      <button class="btn btn-sm" onclick="Editor.loadSample('qr')">⬛ 二维码</button>
-      <button class="btn btn-sm" onclick="Editor.loadSample('product')">🏷 产品标签</button>
-      <div class="sep-v"></div>
-      <button class="btn btn-sm" onclick="Editor.clear()">清空</button>
-      <button class="btn btn-sm" onclick="Editor.format()">格式化</button>
+  <!-- TOOLBAR -->
+  <div class="tbar">
+    <div class="tbar-l">
+      <button class="btn btn-sm" onclick="loadSample()">📄 示例 ZPL</button>
+      <button class="btn btn-sm" onclick="triggerUpload()">📂 上传文件</button>
+      <input type="file" id="file-upload" accept=".zpl,.txt" style="display:none" onchange="onFileUpload(event)">
+      <div class="sep"></div>
+      <button class="btn btn-sm" id="btn-decon" onclick="deconstructZPL()" disabled>
+        ✂️ 解构双栏 → 单标签
+      </button>
+      <button class="btn btn-sm btn-green hidden" id="btn-preview-all" onclick="previewAll()">
+        👁 预览所有标签
+      </button>
     </div>
-    <div class="toolbar-right">
-      <label class="toolbar-label">DPI</label>
-      <select id="sel-dpi" class="ctrl-select">
-        <option value="152">152</option>
-        <option value="203" selected>203</option>
-        <option value="300">300</option>
-        <option value="600">600</option>
+    <div class="tbar-r">
+      <span class="tlabel">DPI</span>
+      <select id="sel-dpi" class="ctrl">
+        <option value="6">152</option>
+        <option value="8" selected>203</option>
+        <option value="12">300</option>
+        <option value="24">600</option>
       </select>
-      <label class="toolbar-label">宽(mm)</label>
-      <input id="inp-w" type="number" class="ctrl-input" value="100" min="10" max="300">
-      <label class="toolbar-label">高(mm)</label>
-      <input id="inp-h" type="number" class="ctrl-input" value="150" min="10" max="600">
-      <label class="toolbar-label">旋转</label>
-      <select id="sel-rot" class="ctrl-select">
-        <option value="0">0°</option>
-        <option value="90">90°</option>
-        <option value="180">180°</option>
-        <option value="270">270°</option>
-      </select>
+      <span class="tlabel">宽mm</span>
+      <input id="inp-w" type="number" class="ctrl ctrl-w" value="100" min="10" max="300">
+      <span class="tlabel">高mm</span>
+      <input id="inp-h" type="number" class="ctrl ctrl-w" value="50" min="10" max="600">
     </div>
   </div>
 
-  <!-- Main workspace -->
-  <div class="workspace">
+  <!-- WORKSPACE -->
+  <div class="workspace" id="workspace">
 
-    <!-- Editor pane -->
-    <div class="pane pane-editor">
-      <div class="pane-header">
-        <span class="pane-title">ZPL 代码</span>
-        <div class="pane-actions">
-          <button class="btn btn-xs" onclick="Editor.copyZPL()" title="复制代码">复制</button>
-          <button class="btn btn-xs" onclick="Editor.uploadFile()" title="上传 .zpl 文件">上传</button>
-          <input type="file" id="file-upload" accept=".zpl,.txt" style="display:none" onchange="Editor.onFileUpload(event)">
+    <!-- LEFT: EDITOR -->
+    <div class="pane">
+      <div class="ph">
+        <span class="pt">ZPL 代码编辑器</span>
+        <div class="pa">
+          <span id="lcount" class="efi">-</span>
+          <button class="btn btn-xs" onclick="copyZPL()">复制</button>
+          <button class="btn btn-xs" onclick="clearEditor()">清空</button>
         </div>
       </div>
-      <div class="editor-body">
-        <div class="line-nums" id="line-nums"></div>
-        <textarea
-          id="zpl-input"
-          class="zpl-editor"
-          spellcheck="false"
-          autocorrect="off"
-          autocapitalize="off"
-          placeholder="在此输入 ZPL 代码...&#10;&#10;例如:&#10;^XA&#10;^FO50,50^ADN,36,20^FDHello World^FS&#10;^XZ"
-        ></textarea>
+      <div class="ed-body">
+        <div class="lnums" id="lnums">1</div>
+        <textarea id="zpl-ta" class="zpl-ta" spellcheck="false"
+          placeholder="在此输入 ZPL 代码...
+
+支持：
+• 单标签 ^XA...^XZ
+• 多标签文件（多个 ^XA...^XZ 块）
+• 双栏布局（左列 x<400，右列 x>=430）
+  → 点击【解构双栏】自动拆分为独立标签
+
+或点击【示例 ZPL】或【上传文件】"></textarea>
       </div>
-      <div class="editor-footer">
-        <span id="cursor-pos" class="ef-info">行 1, 列 1</span>
-        <span id="char-count" class="ef-info">0 字符</span>
-        <span id="label-count" class="ef-info">0 个标签</span>
+      <div class="ed-ft">
+        <span id="cur-pos" class="efi">行1 列1</span>
+        <span id="char-ct" class="efi">0 字符</span>
+        <span id="blk-ct" class="efi">0 个块</span>
       </div>
     </div>
 
-    <!-- Divider -->
+    <!-- DIVIDER -->
     <div class="divider" id="divider"></div>
 
-    <!-- Preview pane -->
-    <div class="pane pane-preview">
-      <div class="pane-header">
-        <span class="pane-title">标签预览</span>
-        <div class="pane-actions">
-          <span class="spinner hidden" id="spinner"></span>
-          <span id="render-mode" class="badge-mode"></span>
-          <button class="btn btn-xs" onclick="Preview.render()">刷新</button>
-          <button class="btn btn-xs" onclick="Preview.zoomIn()">＋</button>
-          <button class="btn btn-xs" onclick="Preview.zoomOut()">－</button>
-          <button class="btn btn-xs" onclick="Preview.fitPage()">适应</button>
+    <!-- RIGHT: PREVIEW -->
+    <div class="pane pv-pane">
+      <div class="ph">
+        <span class="pt">标签预览</span>
+        <div class="pa">
+          <span class="spin hidden" id="spinner"></span>
+          <button class="btn btn-xs" onclick="renderCurrent()">刷新</button>
+          <button class="btn btn-xs" onclick="zoomIn()">＋</button>
+          <button class="btn btn-xs" onclick="zoomOut()">－</button>
         </div>
       </div>
-      <div class="preview-scroll" id="preview-scroll">
-        <div class="preview-canvas-area" id="preview-area">
-          <div class="empty-state" id="empty-state">
-            <div class="empty-icon">🏷</div>
-            <p class="empty-title">标签预览区</p>
-            <p class="empty-sub">输入 ZPL 代码后自动渲染</p>
+      <!-- progress bar for batch -->
+      <div class="prog-wrap hidden" id="prog-wrap">
+        <div class="prog-bar" id="prog-bar"></div>
+      </div>
+      <div class="pv-scroll" id="pv-scroll">
+        <div class="pv-area" id="pv-area">
+          <div class="empty" id="empty-state">
+            <div class="empty-ico">🏷</div>
+            <p class="empty-ttl">标签预览区</p>
+            <p class="empty-sub">输入 ZPL 代码后自动渲染<br>支持多标签批量预览</p>
           </div>
         </div>
       </div>
-      <div class="preview-footer">
-        <span id="preview-info" class="ef-info">-</span>
-        <span id="zoom-level" class="ef-info">100%</span>
+      <div class="pv-ft">
+        <span id="pv-info" class="efi">-</span>
+        <span id="zoom-lv" class="efi">100%</span>
       </div>
     </div>
+
   </div>
 
-  <!-- Action bar -->
-  <div class="action-bar">
+  <!-- ACTION BAR -->
+  <div class="abar">
     <div class="status-area">
-      <span class="status-dot" id="status-dot"></span>
-      <span id="status-msg">就绪</span>
+      <span class="sdot" id="sdot"></span>
+      <span id="smsg">就绪 — 上传或输入 ZPL，支持双栏解构</span>
     </div>
-    <div class="action-btns">
-      <button class="btn btn-outline" onclick="Editor.copyZPL()">📋 复制 ZPL</button>
-      <button class="btn btn-outline" onclick="Preview.render()">👁 预览</button>
-      <button class="btn btn-primary" onclick="PDF.download()">⬇ 下载 PDF</button>
-      <button class="btn btn-primary" onclick="PDF.print()">🖨 打印</button>
+    <div class="abtns">
+      <button class="btn" onclick="copyZPL()">📋 复制</button>
+      <button class="btn btn-pri" onclick="downloadPDF()" id="btn-pdf">⬇ 下载 PDF</button>
+      <button class="btn btn-pri" onclick="printLabels()" id="btn-print">🖨 打印</button>
     </div>
   </div>
 
 </div>
 
-<!-- Toast notification -->
+<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- Settings modal -->
-<div class="modal-overlay hidden" id="settings-modal">
+<!-- BATCH PREVIEW MODAL -->
+<div class="mover hidden" id="batch-modal">
   <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title">设置</span>
-      <button class="btn-close" onclick="UI.closeModal('settings-modal')">✕</button>
+    <div class="mhdr">
+      <span class="mttl" id="batch-modal-title">标签批量预览</span>
+      <button class="btn-x" onclick="closeModal('batch-modal')">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="setting-row">
-        <label>渲染模式</label>
-        <select id="setting-render-mode" class="ctrl-select">
-          <option value="auto">自动（优先在线）</option>
-          <option value="online">强制在线（Labelary API）</option>
-          <option value="offline">强制离线（本地渲染）</option>
-        </select>
-      </div>
-      <div class="setting-row">
-        <label>自动预览延迟 (ms)</label>
-        <input type="number" id="setting-delay" class="ctrl-input" value="800" min="100" max="3000">
-      </div>
-      <div class="setting-row">
-        <label>PDF 边距 (mm)</label>
-        <input type="number" id="setting-margin" class="ctrl-input" value="0" min="0" max="20">
-      </div>
-      <div class="setting-row">
-        <label>主题</label>
-        <select id="setting-theme" class="ctrl-select">
-          <option value="light">浅色</option>
-          <option value="dark">深色</option>
-          <option value="auto">跟随系统</option>
-        </select>
-      </div>
+    <div class="mbody" id="batch-modal-body">
+      <div class="summ-grid" id="summ-grid"></div>
+      <div class="pdf-grid" id="pdf-grid"></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" onclick="UI.saveSettings()">保存设置</button>
+    <div class="mft">
+      <button class="btn" onclick="closeModal('batch-modal')">关闭</button>
+      <button class="btn btn-pri" onclick="downloadAllPDF()">⬇ 下载全部 PDF</button>
+      <button class="btn btn-pri" onclick="printAll()">🖨 打印全部</button>
     </div>
   </div>
 </div>
 
-<!-- Docs modal -->
-<div class="modal-overlay hidden" id="docs-modal">
-  <div class="modal modal-wide">
-    <div class="modal-header">
-      <span class="modal-title">ZPL 快速参考</span>
-      <button class="btn-close" onclick="UI.closeModal('docs-modal')">✕</button>
+<!-- HELP MODAL -->
+<div class="mover hidden" id="help-modal">
+  <div class="modal">
+    <div class="mhdr">
+      <span class="mttl">使用说明</span>
+      <button class="btn-x" onclick="closeModal('help-modal')">✕</button>
     </div>
-    <div class="modal-body">
-      <div id="docs-content"></div>
+    <div class="mbody" style="font-size:13px;line-height:1.7;color:var(--txt2)">
+      <p style="margin-bottom:12px"><strong style="color:var(--txt)">ZPL Studio v2</strong> 专为处理双栏标签文件设计，参考 Labelary.com 渲染引擎。</p>
+      <p style="margin-bottom:8px;font-weight:600;color:var(--txt)">🔑 核心功能：双栏解构</p>
+      <p style="margin-bottom:10px">你的文件每个 <code style="background:var(--bg3);padding:1px 5px;border-radius:4px">^XA...^XZ</code> 块包含左右两列标签：</p>
+      <ul style="margin-left:16px;margin-bottom:12px">
+        <li>左列：<code style="background:var(--bg3);padding:1px 5px;border-radius:4px">x坐标 &lt; 400</code></li>
+        <li>右列：<code style="background:var(--bg3);padding:1px 5px;border-radius:4px">x坐标 ≥ 430</code>，自动平移到左侧</li>
+      </ul>
+      <p style="margin-bottom:12px">点击 <strong>✂️ 解构双栏</strong> 后，自动拆出所有单标签并批量渲染预览。</p>
+      <p style="margin-bottom:8px;font-weight:600;color:var(--txt)">📄 PDF 导出</p>
+      <p style="margin-bottom:10px">每个标签独占一页，精确匹配标签尺寸。支持一键下载全部。</p>
+      <p style="margin-bottom:8px;font-weight:600;color:var(--txt)">🌐 渲染模式</p>
+      <p>联网时调用 <a href="https://labelary.com" target="_blank" style="color:var(--blue)">Labelary API</a> 获取像素级精确预览；断网自动切换离线 Canvas 渲染。</p>
+    </div>
+    <div class="mft">
+      <button class="btn btn-pri" onclick="closeModal('help-modal')">知道了</button>
     </div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="src/samples.js"></script>
-<script src="src/renderer.js"></script>
-<script src="src/editor.js"></script>
-<script src="src/preview.js"></script>
-<script src="src/pdf.js"></script>
-<script src="src/ui.js"></script>
-<script src="src/app.js"></script>
+<script>
+// ============================================================
+// ZPL Studio v2 — Complete Application
+// ============================================================
+
+// ── State ────────────────────────────────────────────────────
+let _zoom = 1.0;
+let _deconLabels = [];   // single-label ZPL strings after deconstruct
+let _renderedCanvases = []; // {canvas, zpl, idx}
+let _renderTimer = null;
+let _originalZPL = '';
+
+// ── Sample ZPL (双栏格式，匹配用户真实文件) ─────────────────
+const SAMPLE_ZPL = `^XA^CI28
+^LH0,0
+^FO65,18^BY2,,0^BCN,54,N,N^FDRRIC55112^FS
+^FO145,80^A0N,20,25^FH^FDRRIC55112^FS
+^FO22,115^A0N,18,18^FB380,2,0,L^FH^FDCarcasa Tapa Trasera LG V60 Blanco^FS
+^FO22,170^A0N,18,18^FH^FDSKU: BE-SLHG0211-2^FS
+^CI28
+^LH0,0
+^FO475,18^BY2,,0^BCN,54,N,N^FDRRIC55112^FS
+^FO555,80^A0N,20,25^FH^FDRRIC55112^FS
+^FO432,115^A0N,18,18^FB380,2,0,L^FH^FDCarcasa Tapa Trasera LG V60 Blanco^FS
+^FO432,170^A0N,18,18^FH^FDSKU: BE-SLHG0211-2^FS
+^XZ
+^XA^CI28
+^LH0,0
+^FO65,18^BY2,,0^BCN,54,N,N^FDTDZB56505^FS
+^FO145,80^A0N,20,25^FH^FDTDZB56505^FS
+^FO22,115^A0N,18,18^FB380,2,0,L^FH^FDTapa Trasera Xiaomi Redmi A3 Negro^FS
+^FO22,170^A0N,18,18^FH^FDSKU: BE-SLHG0187-1^FS
+^CI28
+^LH0,0
+^FO475,18^BY2,,0^BCN,54,N,N^FDTDZB56505^FS
+^FO555,80^A0N,20,25^FH^FDTDZB56505^FS
+^FO432,115^A0N,18,18^FB380,2,0,L^FH^FDTapa Trasera Xiaomi Redmi A3 Negro^FS
+^FO432,170^A0N,18,18^FH^FDSKU: BE-SLHG0187-1^FS
+^XZ`;
+
+// ── ZPL Deconstruct ──────────────────────────────────────────
+function deconstructZPL() {
+  const raw = document.getElementById('zpl-ta').value.trim();
+  if (!raw) { toast('请先输入或上传 ZPL 代码'); return; }
+
+  const blocks = [...raw.matchAll(/\^XA([\s\S]*?)\^XZ/gi)].map(m => m[1]);
+  if (!blocks.length) { toast('未找到 ^XA...^XZ 标签块'); return; }
+
+  const singles = [];
+
+  for (const block of blocks) {
+    const base = '^CI28^LH0,0';
+    // All ^FO...^FS fields
+    const fields = [...block.matchAll(/\^FO(\d+),(\d+)([\s\S]*?)\^FS/g)];
+
+    const leftFields  = fields.filter(m => parseInt(m[1]) < 400);
+    const rightFields = fields.filter(m => parseInt(m[1]) >= 430);
+
+    // Left label
+    if (leftFields.length) {
+      const parts = leftFields
+        .map(m => `^FO${m[1]},${m[2]}${m[3]}^FS`)
+        .filter(p => !p.includes('^FD^FS') && !p.includes('^FD\n^FS'));
+      if (parts.length) singles.push(`^XA${base}${parts.join('')}^XZ`);
+    }
+
+    // Right label — shift x by -410 (right starts at ~430)
+    if (rightFields.length) {
+      const parts = rightFields
+        .filter(m => !m[0].includes('^FD^FS') && !m[0].includes('^FD\n^FS'))
+        .map(m => {
+          const newX = Math.max(20, parseInt(m[1]) - 410);
+          return `^FO${newX},${m[2]}${m[3]}^FS`;
+        });
+      if (parts.length) singles.push(`^XA${base}${parts.join('')}^XZ`);
+    }
+  }
+
+  _deconLabels = singles;
+  _renderedCanvases = [];
+
+  setStatus(`解构完成：${blocks.length} 个双栏块 → ${singles.length} 个单标签`, 'ok');
+  document.getElementById('btn-preview-all').classList.remove('hidden');
+  updateStats();
+  toast(`✂️ 已拆分出 ${singles.length} 个单标签，点击【预览所有标签】`);
+
+  // Auto-render first label
+  if (singles.length) {
+    document.getElementById('zpl-ta').value = singles[0];
+    updateLineNums();
+    renderCurrent();
+  }
+}
+
+// ── Batch Preview ────────────────────────────────────────────
+async function previewAll() {
+  if (!_deconLabels.length) { toast('请先执行解构'); return; }
+
+  document.getElementById('batch-modal').classList.remove('hidden');
+  document.getElementById('batch-modal-title').textContent =
+    `批量预览 — ${_deconLabels.length} 个标签`;
+
+  // Summary cards
+  const sg = document.getElementById('summ-grid');
+  const wMM = parseFloat(document.getElementById('inp-w').value) || 100;
+  const hMM = parseFloat(document.getElementById('inp-h').value) || 50;
+  sg.innerHTML = `
+    <div class="summ-card"><div class="summ-num">${_deconLabels.length}</div><div class="summ-lbl">单标签总数</div></div>
+    <div class="summ-card"><div class="summ-num">${wMM}×${hMM}</div><div class="summ-lbl">标签尺寸 (mm)</div></div>
+    <div class="summ-card"><div class="summ-num">${Math.ceil(_deconLabels.length / 50)}</div><div class="summ-lbl">PDF 批次 (每50张)</div></div>`;
+
+  const grid = document.getElementById('pdf-grid');
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--txt3)">渲染中，请稍候...</div>';
+
+  // Render all (batch with Labelary API then Canvas fallback)
+  _renderedCanvases = [];
+  const total = _deconLabels.length;
+  const rendered = [];
+
+  // Show progress
+  document.getElementById('prog-wrap').classList.remove('hidden');
+  const pb = document.getElementById('prog-bar');
+
+  for (let i = 0; i < total; i++) {
+    const canvas = await renderOne(_deconLabels[i], wMM, hMM);
+    rendered.push({ canvas, zpl: _deconLabels[i], idx: i });
+    pb.style.width = `${Math.round((i + 1) / total * 100)}%`;
+  }
+
+  _renderedCanvases = rendered;
+  document.getElementById('prog-wrap').classList.add('hidden');
+  pb.style.width = '0';
+
+  // Build grid
+  grid.innerHTML = '';
+  for (const { canvas, idx } of rendered) {
+    const item = document.createElement('div');
+    item.className = 'pdf-item';
+    item.title = `标签 ${idx + 1}`;
+
+    const c2 = document.createElement('canvas');
+    const scale = 180 / canvas.width;
+    c2.width  = Math.round(canvas.width  * scale);
+    c2.height = Math.round(canvas.height * scale);
+    const ctx = c2.getContext('2d');
+    ctx.drawImage(canvas, 0, 0, c2.width, c2.height);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'pdf-item-label';
+    lbl.textContent = `#${idx + 1}`;
+
+    item.appendChild(c2);
+    item.appendChild(lbl);
+    grid.appendChild(item);
+  }
+
+  setStatus(`已渲染 ${total} 个标签`, 'ok');
+}
+
+// ── Single render ────────────────────────────────────────────
+async function renderOne(zpl, wMM, hMM) {
+  const dpmm = parseInt(document.getElementById('sel-dpi').value);
+  const inchW = (wMM / 25.4).toFixed(4);
+  const inchH = (hMM / 25.4).toFixed(4);
+
+  try {
+    const url = `https://api.labelary.com/v1/printers/${dpmm}dpmm/labels/${inchW}x${inchH}/0/`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Accept': 'image/png', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: zpl
+    });
+    if (!res.ok) throw new Error('API error');
+    const blob = await res.blob();
+    const imgUrl = URL.createObjectURL(blob);
+    return await blobToCanvas(imgUrl, wMM, hMM);
+  } catch {
+    return offlineRender(zpl, wMM, hMM);
+  }
+}
+
+async function blobToCanvas(imgUrl, wMM, hMM) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 600;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height)) * _zoom;
+      const W = Math.round(img.width  * scale);
+      const H = Math.round(img.height * scale);
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(img, 0, 0, W, H);
+      URL.revokeObjectURL(imgUrl);
+      res(c);
+    };
+    img.onerror = () => rej(new Error('img load failed'));
+    img.src = imgUrl;
+  });
+}
+
+function offlineRender(zpl, wMM, hMM) {
+  const S = 2.835;
+  const W = Math.round(wMM * S * _zoom);
+  const H = Math.round(hMM * S * _zoom);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'white'; ctx.fillRect(0, 0, W, H);
+  renderZPLOffline(ctx, zpl, W, H);
+  return c;
+}
+
+function renderZPLOffline(ctx, zpl, W, H) {
+  const sc = W / 812;
+  const cmds = zpl.split(/(?=\^|\~)/).map(s => s.trim()).filter(Boolean);
+  let ox = 0, oy = 0, fh = 18, fw = 18;
+
+  for (const cmd of cmds) {
+    const fo = cmd.match(/^\^FO(-?\d+),(-?\d+)/);
+    if (fo) { ox = parseInt(fo[1]) * sc; oy = parseInt(fo[2]) * sc; continue; }
+
+    const a0 = cmd.match(/^\^A0[NRI]?,(\d+),(\d+)/);
+    if (a0) { fh = parseInt(a0[1]); fw = parseInt(a0[2]); continue; }
+
+    const ad = cmd.match(/^\^AD[NRI]?,(\d+),(\d+)/);
+    if (ad) { fh = parseInt(ad[1]); fw = parseInt(ad[2]); continue; }
+
+    if (cmd.includes('^FD')) {
+      const fd = cmd.match(/\^FD([\s\S]*?)\^FS/);
+      if (!fd) continue;
+      let txt = fd[1].replace(/^>:/, '').replace(/_[0-9A-F]{2}/g, m => {
+        try { return decodeURIComponent('%' + m.slice(1)); } catch { return m; }
+      }).trim();
+      if (!txt) continue;
+      const fs = Math.max(8, fh * sc * 0.72);
+      ctx.font = `${fs}px Arial,sans-serif`;
+      ctx.fillStyle = '#000';
+      ctx.fillText(txt, ox, oy + fs);
+      continue;
+    }
+
+    const gb = cmd.match(/^\^GB(\d+),(\d+),(\d+)/);
+    if (gb) {
+      const bw = parseInt(gb[1]) * sc, bh = parseInt(gb[2]) * sc;
+      const tk = Math.max(.5, parseInt(gb[3]) * sc);
+      ctx.fillStyle = '#000';
+      if (bh <= tk * 2) ctx.fillRect(ox, oy, bw, tk);
+      else if (bw <= tk * 2) ctx.fillRect(ox, oy, tk, bh);
+      else { ctx.strokeStyle = '#000'; ctx.lineWidth = tk; ctx.strokeRect(ox+tk/2, oy+tk/2, bw-tk, bh-tk); }
+      continue;
+    }
+
+    if (/^\^B[C23]/.test(cmd)) {
+      const hm = cmd.match(/\^B[C23][NRI]?,(\d+)/);
+      const bh = hm ? parseInt(hm[1]) * sc : 60 * sc;
+      const bw = 200 * sc;
+      ctx.fillStyle = '#000';
+      for (let i = 0; i < 40; i++) {
+        if (i % 3 !== 1) ctx.fillRect(ox + i * bw/40, oy, bw/40 * .65, bh);
+      }
+      continue;
+    }
+
+    if (/^\^BQ/.test(cmd)) {
+      const qsc = cmd.match(/\^BQN?,\d+,(\d+)/);
+      const cell = qsc ? Math.max(2, parseInt(qsc[1]) * 3) * sc : 4 * sc;
+      const M = 21;
+      const pat = [
+        [1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],
+        [1,0,1,1,1,0,1,0,0,1,0,1,0,0,1,0,1,1,1,0,1],
+        [1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],
+        [1,0,0,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,1,1],
+        [0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0],
+        [1,0,1,1,0,1,1,1,0,1,0,1,0,1,1,0,1,0,0,1,0],
+        [0,1,0,0,1,0,0,0,1,0,1,0,1,0,0,1,0,0,1,0,1],
+        [1,0,1,0,1,1,0,1,0,1,0,0,1,0,1,0,1,0,0,0,1],
+        [0,1,0,1,0,0,0,0,1,0,0,1,0,0,0,1,0,1,0,1,0],
+        [1,0,1,0,1,1,1,0,1,1,0,0,1,0,1,0,1,0,1,0,1],
+        [0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,1,0,1,0,1,0],
+        [1,1,1,1,1,1,1,0,0,0,1,0,1,0,1,0,1,0,0,0,1],
+        [1,0,0,0,0,0,1,0,1,0,0,1,0,0,0,1,0,1,0,1,0],
+        [1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+        [1,0,1,1,1,0,1,0,0,1,0,1,0,0,0,1,0,1,0,1,0],
+        [1,0,1,1,1,0,1,0,1,0,0,0,1,0,1,0,1,0,0,0,1],
+        [1,0,0,0,0,0,1,0,0,1,0,1,0,0,0,1,0,1,0,1,0],
+        [1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+      ];
+      ctx.fillStyle = '#000';
+      for (let r = 0; r < M; r++)
+        for (let c2 = 0; c2 < M; c2++)
+          if (pat[r] && pat[r][c2]) ctx.fillRect(ox + c2*cell, oy + r*cell, cell-.5, cell-.5);
+      continue;
+    }
+  }
+}
+
+// ── Render current (single label in editor) ─────────────────
+async function renderCurrent() {
+  const zpl = document.getElementById('zpl-ta').value.trim();
+  if (!zpl) return;
+  const wMM = parseFloat(document.getElementById('inp-w').value) || 100;
+  const hMM = parseFloat(document.getElementById('inp-h').value) || 50;
+
+  showSpinner(true);
+  setStatus('渲染中...', 'busy');
+
+  try {
+    const canvas = await renderOne(zpl, wMM, hMM);
+    mountCanvas(canvas, wMM, hMM);
+    setStatus(`渲染完成 · ${wMM}×${hMM}mm`, 'ok');
+    setBadge();
+  } catch (e) {
+    setStatus('渲染失败: ' + e.message, 'err');
+  }
+  showSpinner(false);
+}
+
+function mountCanvas(canvas, wMM, hMM) {
+  const area = document.getElementById('pv-area');
+  area.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.className = 'lbl-wrap';
+  const tag  = document.createElement('div'); tag.className = 'lbl-tag';
+  tag.textContent = `${wMM} × ${hMM} mm`;
+  const card = document.createElement('div'); card.className = 'lbl-card';
+  card.appendChild(canvas);
+  wrap.appendChild(tag);
+  wrap.appendChild(card);
+  area.appendChild(wrap);
+  document.getElementById('pv-info').textContent = `${canvas.width}×${canvas.height}px`;
+  document.getElementById('zoom-lv').textContent  = `${Math.round(_zoom*100)}%`;
+}
+
+// ── PDF Download ─────────────────────────────────────────────
+async function downloadPDF() {
+  const zpl = document.getElementById('zpl-ta').value.trim();
+  if (!zpl) { toast('请先输入 ZPL 代码'); return; }
+  const wMM = parseFloat(document.getElementById('inp-w').value) || 100;
+  const hMM = parseFloat(document.getElementById('inp-h').value) || 50;
+
+  setStatus('生成 PDF...', 'busy');
+  try {
+    const canvas = await renderOne(zpl, wMM, hMM);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: wMM >= hMM ? 'l' : 'p', unit: 'mm', format: [wMM, hMM] });
+    pdf.addImage(canvas.toDataURL('image/png', 1), 'PNG', 0, 0, wMM, hMM);
+    pdf.save(`zpl-label-${wMM}x${hMM}.pdf`);
+    setStatus('PDF 已下载', 'ok'); toast('PDF 已下载');
+  } catch (e) { setStatus('PDF 失败: ' + e.message, 'err'); }
+}
+
+async function downloadAllPDF() {
+  if (!_renderedCanvases.length && _deconLabels.length) await previewAll();
+  if (!_renderedCanvases.length) { toast('请先执行解构并预览'); return; }
+
+  const wMM = parseFloat(document.getElementById('inp-w').value) || 100;
+  const hMM = parseFloat(document.getElementById('inp-h').value) || 50;
+  const { jsPDF } = window.jspdf;
+  setStatus(`打包 ${_renderedCanvases.length} 个标签...`, 'busy');
+
+  // batch by 50
+  const BS = 50;
+  for (let i = 0; i < _renderedCanvases.length; i += BS) {
+    const batch = _renderedCanvases.slice(i, i + BS);
+    const pdf = new jsPDF({ orientation: wMM >= hMM ? 'l' : 'p', unit: 'mm', format: [wMM, hMM] });
+    batch.forEach(({ canvas }, bi) => {
+      if (bi > 0) pdf.addPage([wMM, hMM], wMM >= hMM ? 'l' : 'p');
+      pdf.addImage(canvas.toDataURL('image/png', 1), 'PNG', 0, 0, wMM, hMM);
+    });
+    const fn = `labels_batch${Math.floor(i/BS)+1}_${i+1}-${Math.min(i+BS, _renderedCanvases.length)}.pdf`;
+    pdf.save(fn);
+  }
+  setStatus(`已下载 ${_renderedCanvases.length} 个标签的 PDF`, 'ok');
+  toast(`已下载 ${Math.ceil(_renderedCanvases.length/BS)} 个 PDF 文件`);
+}
+
+// ── Print ────────────────────────────────────────────────────
+async function printLabels() {
+  const zpl = document.getElementById('zpl-ta').value.trim();
+  if (!zpl) { toast('请先输入 ZPL 代码'); return; }
+  const wMM = parseFloat(document.getElementById('inp-w').value) || 100;
+  const hMM = parseFloat(document.getElementById('inp-h').value) || 50;
+  const canvas = await renderOne(zpl, wMM, hMM);
+  openPrintWindow([canvas], wMM, hMM);
+}
+
+async function printAll() {
+  if (!_renderedCanvases.length && _deconLabels.length) await previewAll();
+  if (!_renderedCanvases.length) { toast('请先执行解构'); return; }
+  const wMM = parseFloat(document.getElementById('inp-w').value) || 100;
+  const hMM = parseFloat(document.getElementById('inp-h').value) || 50;
+  openPrintWindow(_renderedCanvases.map(r => r.canvas), wMM, hMM);
+}
+
+function openPrintWindow(canvases, wMM, hMM) {
+  const imgs = canvases.map(c => c.toDataURL('image/png', 1));
+  const pw = window.open('', '_blank', 'width=900,height=700');
+  if (!pw) { toast('请允许弹出窗口'); return; }
+  pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+@page{margin:0;size:${wMM}mm ${hMM}mm}
+*{margin:0;padding:0}
+body{width:${wMM}mm}
+.pg{width:${wMM}mm;height:${hMM}mm;page-break-after:always;overflow:hidden}
+.pg img{width:${wMM}mm;height:${hMM}mm;display:block}
+.ctrl{position:fixed;top:0;left:0;right:0;background:#18181a;color:#fff;padding:8px 14px;font:13px sans-serif;display:flex;align-items:center;gap:10px;z-index:99}
+.ctrl button{padding:4px 12px;border-radius:5px;cursor:pointer;border:none;font-size:12px}
+.bp{background:#185FA5;color:#fff}.bc{background:#555;color:#fff}
+@media print{.ctrl{display:none}}
+</style></head><body>
+<div class="ctrl">
+  <span>共 ${canvases.length} 张标签 · ${wMM}×${hMM}mm</span>
+  <button class="bp" onclick="window.print()">🖨 打印</button>
+  <button class="bc" onclick="window.close()">✕ 关闭</button>
+</div>
+${imgs.map(src => `<div class="pg"><img src="${src}"></div>`).join('')}
+<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),400))<\/script>
+</body></html>`);
+  pw.document.close();
+}
+
+// ── Editor ───────────────────────────────────────────────────
+function updateLineNums() {
+  const lines = (document.getElementById('zpl-ta').value.match(/\n/g)||[]).length + 1;
+  document.getElementById('lnums').textContent = Array.from({length:lines},(_,i)=>i+1).join('\n');
+}
+function updateStats() {
+  const val = document.getElementById('zpl-ta').value;
+  document.getElementById('char-ct').textContent = val.length + ' 字符';
+  const blks = (val.match(/\^XA/gi)||[]).length;
+  document.getElementById('blk-ct').textContent = blks + ' 个块';
+  const decon = _deconLabels.length;
+  document.getElementById('lcount').textContent = decon ? `已解构 ${decon} 个单标签` : blks + ' 个块';
+  document.getElementById('btn-decon').disabled = !val.trim();
+}
+document.getElementById('zpl-ta').addEventListener('input', () => {
+  updateLineNums(); updateStats();
+  clearTimeout(_renderTimer);
+  _renderTimer = setTimeout(renderCurrent, 900);
+});
+document.getElementById('zpl-ta').addEventListener('scroll', () => {
+  document.getElementById('lnums').scrollTop = document.getElementById('zpl-ta').scrollTop;
+});
+document.getElementById('zpl-ta').addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  e.preventDefault();
+  const ta = e.target, s = ta.selectionStart;
+  ta.value = ta.value.slice(0,s) + '  ' + ta.value.slice(ta.selectionEnd);
+  ta.selectionStart = ta.selectionEnd = s + 2;
+});
+['sel-dpi','inp-w','inp-h'].forEach(id =>
+  document.getElementById(id).addEventListener('change', renderCurrent));
+
+function clearEditor() {
+  document.getElementById('zpl-ta').value = '';
+  _deconLabels = []; _renderedCanvases = [];
+  document.getElementById('btn-preview-all').classList.add('hidden');
+  updateLineNums(); updateStats();
+  clearPreview();
+  setStatus('已清空');
+}
+function clearPreview() {
+  document.getElementById('pv-area').innerHTML = `
+    <div class="empty" id="empty-state">
+      <div class="empty-ico">🏷</div>
+      <p class="empty-ttl">标签预览区</p>
+      <p class="empty-sub">输入 ZPL 代码后自动渲染<br>支持多标签批量预览</p>
+    </div>`;
+}
+function copyZPL() {
+  const v = document.getElementById('zpl-ta').value;
+  if (!v) { toast('没有内容'); return; }
+  navigator.clipboard.writeText(v).then(() => toast('已复制'));
+}
+function loadSample() {
+  document.getElementById('zpl-ta').value = SAMPLE_ZPL;
+  updateLineNums(); updateStats();
+  setStatus('示例 ZPL 已加载 (双栏格式)', 'ok');
+  renderCurrent();
+}
+function triggerUpload() { document.getElementById('file-upload').click(); }
+function onFileUpload(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    document.getElementById('zpl-ta').value = ev.target.result;
+    _deconLabels = []; _renderedCanvases = [];
+    document.getElementById('btn-preview-all').classList.add('hidden');
+    updateLineNums(); updateStats();
+    setStatus(`已加载: ${f.name}`, 'ok');
+    renderCurrent();
+  };
+  r.readAsText(f);
+  e.target.value = '';
+}
+
+// ── Zoom ─────────────────────────────────────────────────────
+function zoomIn()  { _zoom = Math.min(3, _zoom + .25); renderCurrent(); }
+function zoomOut() { _zoom = Math.max(.25, _zoom - .25); renderCurrent(); }
+
+// ── Divider ──────────────────────────────────────────────────
+(function() {
+  const div = document.getElementById('divider');
+  const ws  = document.getElementById('workspace');
+  let dragging = false, sx = 0, sc0 = [];
+  div.addEventListener('mousedown', e => {
+    dragging = true; sx = e.clientX;
+    sc0 = getComputedStyle(ws).gridTemplateColumns.split(' ').map(parseFloat);
+    div.classList.add('drag');
+    document.body.style.cssText = 'cursor:col-resize;user-select:none';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - sx;
+    const total = sc0[0] + sc0[2];
+    const nL = Math.max(200, Math.min(total - 200, sc0[0] + dx));
+    ws.style.gridTemplateColumns = `${nL}px 3px 1fr`;
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false; div.classList.remove('drag');
+    document.body.style.cssText = '';
+  });
+})();
+
+// ── Modal ────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('mover')) e.target.classList.add('hidden');
+});
+function showHelp() { document.getElementById('help-modal').classList.remove('hidden'); }
+
+// ── Helpers ──────────────────────────────────────────────────
+function setStatus(msg, type) {
+  document.getElementById('smsg').textContent = msg;
+  const d = document.getElementById('sdot');
+  d.className = 'sdot' + (type ? ' ' + type : '');
+}
+function showSpinner(v) { document.getElementById('spinner').classList.toggle('hidden', !v); }
+let _toastT;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => el.classList.remove('show'), 2400);
+}
+function setBadge() {
+  const b = document.getElementById('badge-mode');
+  b.classList.remove('hidden');
+  // quick connectivity check
+  fetch('https://api.labelary.com/v1/', { method: 'HEAD' })
+    .then(() => { b.className = 'badge badge-on'; b.textContent = '在线渲染'; })
+    .catch(() => { b.className = 'badge badge-off'; b.textContent = '离线渲染'; });
+}
+
+// ── Init ─────────────────────────────────────────────────────
+updateLineNums();
+updateStats();
+</script>
 </body>
 </html>
