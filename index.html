@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZPL Studio — ZPL 代码转 PDF 打印工具</title>
+  <meta name="description" content="在线 ZPL (Zebra Programming Language) 代码预览、转换 PDF 并打印。支持货运标签、条形码、二维码。">
+  <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="white"><path d="M20 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8 9H4v-2h8v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zM4 11V9h16v2H4z"/></svg>
+      </div>
+      <span class="logo-name">ZPL<em>Studio</em></span>
+    </div>
+    <nav class="header-nav">
+      <button class="nav-btn" onclick="UI.showDocs()">文档</button>
+      <button class="nav-btn" onclick="UI.showSettings()">设置</button>
+      <a class="nav-btn" href="https://github.com/yourusername/zpl-studio" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <span class="toolbar-label">示例</span>
+      <button class="btn btn-sm" onclick="Editor.loadSample('shipping')">📦 货运标签</button>
+      <button class="btn btn-sm" onclick="Editor.loadSample('barcode')">▦ 条形码</button>
+      <button class="btn btn-sm" onclick="Editor.loadSample('qr')">⬛ 二维码</button>
+      <button class="btn btn-sm" onclick="Editor.loadSample('product')">🏷 产品标签</button>
+      <div class="sep-v"></div>
+      <button class="btn btn-sm" onclick="Editor.clear()">清空</button>
+      <button class="btn btn-sm" onclick="Editor.format()">格式化</button>
+    </div>
+    <div class="toolbar-right">
+      <label class="toolbar-label">DPI</label>
+      <select id="sel-dpi" class="ctrl-select">
+        <option value="152">152</option>
+        <option value="203" selected>203</option>
+        <option value="300">300</option>
+        <option value="600">600</option>
+      </select>
+      <label class="toolbar-label">宽(mm)</label>
+      <input id="inp-w" type="number" class="ctrl-input" value="100" min="10" max="300">
+      <label class="toolbar-label">高(mm)</label>
+      <input id="inp-h" type="number" class="ctrl-input" value="150" min="10" max="600">
+      <label class="toolbar-label">旋转</label>
+      <select id="sel-rot" class="ctrl-select">
+        <option value="0">0°</option>
+        <option value="90">90°</option>
+        <option value="180">180°</option>
+        <option value="270">270°</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Main workspace -->
+  <div class="workspace">
+
+    <!-- Editor pane -->
+    <div class="pane pane-editor">
+      <div class="pane-header">
+        <span class="pane-title">ZPL 代码</span>
+        <div class="pane-actions">
+          <button class="btn btn-xs" onclick="Editor.copyZPL()" title="复制代码">复制</button>
+          <button class="btn btn-xs" onclick="Editor.uploadFile()" title="上传 .zpl 文件">上传</button>
+          <input type="file" id="file-upload" accept=".zpl,.txt" style="display:none" onchange="Editor.onFileUpload(event)">
+        </div>
+      </div>
+      <div class="editor-body">
+        <div class="line-nums" id="line-nums"></div>
+        <textarea
+          id="zpl-input"
+          class="zpl-editor"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          placeholder="在此输入 ZPL 代码...&#10;&#10;例如:&#10;^XA&#10;^FO50,50^ADN,36,20^FDHello World^FS&#10;^XZ"
+        ></textarea>
+      </div>
+      <div class="editor-footer">
+        <span id="cursor-pos" class="ef-info">行 1, 列 1</span>
+        <span id="char-count" class="ef-info">0 字符</span>
+        <span id="label-count" class="ef-info">0 个标签</span>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider" id="divider"></div>
+
+    <!-- Preview pane -->
+    <div class="pane pane-preview">
+      <div class="pane-header">
+        <span class="pane-title">标签预览</span>
+        <div class="pane-actions">
+          <span class="spinner hidden" id="spinner"></span>
+          <span id="render-mode" class="badge-mode"></span>
+          <button class="btn btn-xs" onclick="Preview.render()">刷新</button>
+          <button class="btn btn-xs" onclick="Preview.zoomIn()">＋</button>
+          <button class="btn btn-xs" onclick="Preview.zoomOut()">－</button>
+          <button class="btn btn-xs" onclick="Preview.fitPage()">适应</button>
+        </div>
+      </div>
+      <div class="preview-scroll" id="preview-scroll">
+        <div class="preview-canvas-area" id="preview-area">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-icon">🏷</div>
+            <p class="empty-title">标签预览区</p>
+            <p class="empty-sub">输入 ZPL 代码后自动渲染</p>
+          </div>
+        </div>
+      </div>
+      <div class="preview-footer">
+        <span id="preview-info" class="ef-info">-</span>
+        <span id="zoom-level" class="ef-info">100%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <div class="status-area">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-msg">就绪</span>
+    </div>
+    <div class="action-btns">
+      <button class="btn btn-outline" onclick="Editor.copyZPL()">📋 复制 ZPL</button>
+      <button class="btn btn-outline" onclick="Preview.render()">👁 预览</button>
+      <button class="btn btn-primary" onclick="PDF.download()">⬇ 下载 PDF</button>
+      <button class="btn btn-primary" onclick="PDF.print()">🖨 打印</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<!-- Settings modal -->
+<div class="modal-overlay hidden" id="settings-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">设置</span>
+      <button class="btn-close" onclick="UI.closeModal('settings-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="setting-row">
+        <label>渲染模式</label>
+        <select id="setting-render-mode" class="ctrl-select">
+          <option value="auto">自动（优先在线）</option>
+          <option value="online">强制在线（Labelary API）</option>
+          <option value="offline">强制离线（本地渲染）</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>自动预览延迟 (ms)</label>
+        <input type="number" id="setting-delay" class="ctrl-input" value="800" min="100" max="3000">
+      </div>
+      <div class="setting-row">
+        <label>PDF 边距 (mm)</label>
+        <input type="number" id="setting-margin" class="ctrl-input" value="0" min="0" max="20">
+      </div>
+      <div class="setting-row">
+        <label>主题</label>
+        <select id="setting-theme" class="ctrl-select">
+          <option value="light">浅色</option>
+          <option value="dark">深色</option>
+          <option value="auto">跟随系统</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="UI.saveSettings()">保存设置</button>
+    </div>
+  </div>
+</div>
+
+<!-- Docs modal -->
+<div class="modal-overlay hidden" id="docs-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <span class="modal-title">ZPL 快速参考</span>
+      <button class="btn-close" onclick="UI.closeModal('docs-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="docs-content"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="src/samples.js"></script>
+<script src="src/renderer.js"></script>
+<script src="src/editor.js"></script>
+<script src="src/preview.js"></script>
+<script src="src/pdf.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
